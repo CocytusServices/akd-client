@@ -1,39 +1,49 @@
 #!/usr/bin/env bash
 
-query_user="$1"
-dot_ssh="$2/.ssh"
+set -x
 
+user="$1"
+sshdir="$2/.ssh"
 
-if [ -f "$dot_ssh/akds" ]; then
-  check_ownership $query_user "$dot_ssh/akds"
-  fetch_akds < $dot_ssh/akds
-  exit 0
+function main {
+  if check_file "$sshdir/akds"; then
+    fetch_akds < $dot_ssh/akds
+    exit 0
+  fi
+  
+  if check_file "$sshdir/akd"; then
+    fetch_akd < $dot_ssh/akd
+    exit 0
+  fi
+  
+  if check_file "$sshdir/url"; then
+    fetch_url < $dot_ssh/url
+    exit 0
+  fi
 
-elif [ -f "$dot_ssh/akd" ]; then
-  check_ownership $query_user "$dot_ssh/akd"
-  fetch_akd < $dot_ssh/akd
-  exit 0
-
-elif [ -f "$dot_ssh/url" ]; then
-  check_ownership $query_user "$dot_ssh/url"
-  fetch_url < $dot_ssh/url
-  exit 0
-
-else
   echo "No relevant files found in user's .ssh"
   exit 0
+}
 
-fi
-
-
-
-check_ownership () {
-  local owner=$(stat -c %U $2)
-  local perms=$(stat -c %A $2)
-  
-  if [ $owner != $1 ]; then
-    return 1
-  elif [ $perms | cut -c6,9 != "--" ]
+function check_file {
+  if [ -f $1 ]; then
+    check_ownership $user $1
+  else
     return 1
   fi
 }
+
+function check_ownership {
+  local owner=$(stat -c %U $2)
+  local perms=$(stat -c %A $2 | cut -c6,9)
+
+  if [ $owner != $1 ]; then
+    return 1
+  elif [ $perms != "--" ]; then
+    return 1
+  fi
+
+  return 0
+}
+
+main "$@"; exit
