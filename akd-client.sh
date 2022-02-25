@@ -25,6 +25,7 @@ function main {
   exit 0
 }
 
+
 function check_file {
   if [ -f $1 ]; then
     check_ownership $user $1
@@ -44,6 +45,36 @@ function check_ownership {
   fi
 
   return 0
+}
+
+
+function fetch_akds {
+  local akds=$(<$1)
+
+}
+
+function fetch_akd {
+  local akd=$(<$1)
+
+  akd_record=$(dig -t txt +short $akd)
+  parse_akd "$akd_record"
+
+}
+
+function parse_akd {
+  local regex_1="\"v=akd; ([^\"]+)\""
+  local regex_2="^k=(.+)"
+  local separator="; k="
+
+  [[ $@ =~ $regex_1 ]]
+  [[ ${BASH_REMATCH[1]} =~ $regex_2 ]]
+
+  printf '%s\n' "${BASH_REMATCH[1]//$separator/$'\n'}"
+}
+
+function fetch_url {
+  local url=$(<$1)
+  curl -s $url
 }
 
 main "$@"; exit
