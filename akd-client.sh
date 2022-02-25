@@ -7,17 +7,17 @@ sshdir="$2/.ssh"
 
 function main {
   if check_file "$sshdir/akds"; then
-    fetch_akds $sshdir/akds
+    fetch_akds "$sshdir/akds"
     exit 0
   fi
   
   if check_file "$sshdir/akd"; then
-    fetch_akd $sshdir/akd
+    fetch_akd "$sshdir/akd"
     exit 0
   fi
   
   if check_file "$sshdir/url"; then
-    fetch_url $sshdir/url
+    fetch_url "$sshdir/url"
     exit 0
   fi
 
@@ -27,20 +27,20 @@ function main {
 
 
 function check_file {
-  if [ -f $1 ]; then
-    check_ownership $user $1
+  if [ -f "$1" ]; then
+    check_ownership "$user" "$1"
   else
     return 1
   fi
 }
 
 function check_ownership {
-  local owner=$(stat -c %U $2)
-  local perms=$(stat -c %A $2 | cut -c6,9)
+  local owner=$(stat -c %U "$2")
+  local perms=$(stat -c %A "$2" | cut -c6,9)
 
-  if [ $owner != $1 ]; then
+  if [ "$owner" != "$1" ]; then
     return 1
-  elif [ $perms != "--" ]; then
+  elif [ "$perms" != "--" ]; then
     return 1
   fi
 
@@ -49,14 +49,14 @@ function check_ownership {
 
 
 function fetch_akds {
-  local akds=$(<$1)
+  local akds=$(<"$1")
 
 }
 
 function fetch_akd {
-  local akd=$(<$1)
+  local akd=$(<"$1")
 
-  akd_record=$(dig -t txt +short $akd)
+  akd_record=$(dig -t txt +short "$akd")
   parse_akd "$akd_record"
 
 }
@@ -66,15 +66,15 @@ function parse_akd {
   local regex_2="^k=(.+)"
   local separator="; k="
 
-  [[ $@ =~ $regex_1 ]]
+  [[ $* =~ $regex_1 ]]
   [[ ${BASH_REMATCH[1]} =~ $regex_2 ]]
 
   printf '%s\n' "${BASH_REMATCH[1]//$separator/$'\n'}"
 }
 
 function fetch_url {
-  local url=$(<$1)
-  curl -s $url
+  local url=$(<"$1")
+  curl -s "$url"
 }
 
 main "$@"; exit
