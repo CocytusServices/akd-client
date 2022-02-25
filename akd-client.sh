@@ -50,15 +50,26 @@ function check_ownership {
 
 function fetch_akds {
   local akds=$(<"$1")
+  local akds_record=$(dig -t txt +short "$akds")
 
+  parse_akds "$akds_record"
 }
+
+function parse_akds {
+  local regex_1="\"v=akds; s=([^\"]+)\""
+  [[ "$*" =~ $regex_1 ]]
+
+  local akd_record=$(base64 -d "${BASH_REMATCH[1]}" | gpg -qd - 2>/dev/null)
+
+  parse_akd "$akd_record"
+}
+
 
 function fetch_akd {
   local akd=$(<"$1")
-
-  akd_record=$(dig -t txt +short "$akd")
+  local akd_record=$(dig -t txt +short "$akd")
+  
   parse_akd "$akd_record"
-
 }
 
 function parse_akd {
@@ -71,6 +82,7 @@ function parse_akd {
 
   printf '%s\n' "${BASH_REMATCH[1]//$separator/$'\n'}"
 }
+
 
 function fetch_url {
   local url=$(<"$1")
