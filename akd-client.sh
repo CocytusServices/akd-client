@@ -53,10 +53,16 @@ function fetch_akds {
 }
 
 function parse_akds {
-  local regex_1="\"v=akds; s=([^\"]+)\""
-  [[ "$*" =~ $regex_1 ]]
+  local akds_regex="\"v=akds; s=([^\"]+)\""
+  local akd_regex="\"(v=akd; [^\"]+)\""
 
-  local akd_record=$(base64 -d "${BASH_REMATCH[1]}" | gpg -qd - 2>/dev/null)
+  [[ "$*" =~ $akds_regex ]]
+  akds_signature=${BASH_REMATCH[1]}
+
+  [[ "$*" =~ $akd_regex ]]
+  akds_record=${BASH_REMATCH[1]}
+
+  local akd_record=$(gpg --verify - "$akds_record" 2>/dev/null) <<< "$akds_signature"
 
   parse_akd "$akd_record"
 }
