@@ -1,12 +1,12 @@
 # AKD Client
 This is an `AuthorizedKeysCommand`-compatible client for controlling SSH access via AKD or AKDS records stored in DNS.  
   
-  
+
 ## Setup
 1. Download `akd-client.sh` and place it in `/etc/ssh`
 2. Make sure its owned by root, and is `go-wx`
 3. Add the following line to `/etc/ssh/sshd_config`:  
-`AuthorizedKeysCommand /bin/bash /etc/ssh/akd-client.sh %h`
+`AuthorizedKeysCommand /bin/bash /etc/ssh/akd-client.sh %u %h`
 4. Create the corresponding file in each user's `.ssh/` folder
   
 
