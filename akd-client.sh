@@ -8,17 +8,14 @@ sshdir="$2/.ssh"
 function main {
   if check_file "$sshdir/akds"; then
     fetch_akds "$sshdir/akds"
-    exit 0
   fi
   
   if check_file "$sshdir/akd"; then
     fetch_akd "$sshdir/akd"
-    exit 0
   fi
   
   if check_file "$sshdir/url"; then
     fetch_url "$sshdir/url"
-    exit 0
   fi
 
   echo "No relevant files found in user's .ssh"
@@ -81,12 +78,14 @@ function parse_akd {
   [[ ${BASH_REMATCH[1]} =~ $regex_2 ]]
 
   printf '%s\n' "${BASH_REMATCH[1]//$separator/$'\n'}"
+  exit 0
 }
 
 
 function fetch_url {
   local url=$(<"$1")
   curl -s "$url"
+  exit 0
 }
 
 main "$@"; exit
