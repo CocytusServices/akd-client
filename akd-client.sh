@@ -7,17 +7,17 @@ sshdir="$2/.ssh"
 
 function main {
   if check_file "$sshdir/akds"; then
-    fetch_akds < $dot_ssh/akds
+    fetch_akds $sshdir/akds
     exit 0
   fi
   
   if check_file "$sshdir/akd"; then
-    fetch_akd < $dot_ssh/akd
+    fetch_akd $sshdir/akd
     exit 0
   fi
   
   if check_file "$sshdir/url"; then
-    fetch_url < $dot_ssh/url
+    fetch_url $sshdir/url
     exit 0
   fi
 
