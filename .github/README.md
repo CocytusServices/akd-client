@@ -20,7 +20,7 @@ There are 3 types of endpoints AKD Client can fetch from:
 2. AKDS
 - AKD, but with an attached GPG signature  
 `~/.ssh/akds:`  
-`_akd.cocytus.services;GPGKEY`  
+`_akd.cocytus.services`  
 3. URL
 - A plain ol' URL pointing to an `authorized_keys`-style file  
 `~/.ssh/url:`  
