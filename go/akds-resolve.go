@@ -4,6 +4,7 @@ import (
     "fmt"
     "net"
     "regexp"
+    "encoding/base64"
 )
 
 func main() {
@@ -70,4 +71,22 @@ func main() {
     fmt.Println("Record type: " + record_type)
     fmt.Println("Signature blob: " + sig_blob)
     fmt.Println("Key blob: " + key_blob)
+
+    var key []byte
+    //var sig []byte
+    key, err := base64.StdEncoding.DecodeString(key_blob)
+    if err != nil {
+        fmt.Println("Failed to decode key blob: " + err.Error())
+        return
+    }
+
+    /*if record_type == "akds" {
+        sig, err = base64.StdEncoding.DecodeString(sig_blob)
+        if err != nil {
+            fmt.Println("Failed to decode signature:  " + err.Error())
+            return
+        }
+    }*/
+
+    fmt.Println("Decoded key blob: " + string(key))
 }
