@@ -7,7 +7,7 @@ import (
     "regexp"
     "encoding/base64"
     "github.com/BurntSushi/toml"
-    "github.com/ProtonMail/gopenpgp/v2/crypto"
+    //"github.com/ProtonMail/gopenpgp/v2/crypto"
 )
 
 // Config file format
@@ -17,23 +17,24 @@ type Config struct {
 }
 
 // Some patterns for the AKDS record format
-const header_pattern := regexp.MustCompile("v=(akds?);")
-const key_pattern := regexp.MustCompile("k=([A-Za-z0-9+/=]+);")
-const sig_pattern := regexp.MustCompile("s=([A-Za-z0-9+/=]+);")
+var header_pattern = regexp.MustCompile("v=(akds?);")
+var key_pattern = regexp.MustCompile("k=([A-Za-z0-9+/=]+);")
+var sig_pattern = regexp.MustCompile("s=([A-Za-z0-9+/=]+);")
 
-// Loads config (see Config) in from the given path
+// Loads config in from the given path
 func loadConfig(path string) (Config, error) {
+    var config Config
+
     // Try read in from the given path
     tomlData, err := os.ReadFile(path)
     if err != nil {
-        return nil, err
+        return config, err
     }
 
     // ...then parse it as TOML
-    var config Config
-    _, err = toml.Decode(tomlData, &config)
+    _, err = toml.Decode(string(tomlData), &config)
     if err != nil {
-        return nil, err
+        return config, err
     }
 
     return config, nil
@@ -43,7 +44,7 @@ func main() {
     // Load in config
     config, err := loadConfig("config.toml")
     if err != nil {
-        fmt.PrintLn("Failed to load config from config.toml")
+        fmt.Println("Failed to load config from config.toml")
         return
     }
 
@@ -109,21 +110,21 @@ func main() {
 
     // Attempt to decode the key blob from base64
     var key []byte
-    key, err := base64.StdEncoding.DecodeString(key_blob)
+    key, err = base64.StdEncoding.DecodeString(key_blob)
     if err != nil {
         fmt.Println("Failed to decode key blob: " + err.Error())
         return
     }
 
     // Do the same for the signature blob if this is an AKDS record
-    /*if record_type == "akds" && config.acceptUnverified == false {
-        var sig []byte
+    var sig []byte
+    if record_type == "akds" && config.acceptUnverified == false {
         sig, err = base64.StdEncoding.DecodeString(sig_blob)
         if err != nil {
             fmt.Println("Failed to decode signature:  " + err.Error())
             return
         }
-    }*/
+    }
 
     fmt.Println("Decoded key blob: " + string(key))
 
