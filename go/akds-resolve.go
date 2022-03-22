@@ -6,7 +6,7 @@ import (
     "regexp"
     "encoding/base64"
     "github.com/BurntSushi/toml"
-    //"github.com/ProtonMail/gopenpgp/v2/crypto"
+    "github.com/ProtonMail/gopenpgp/v2/crypto"
 )
 
 // Config file format
@@ -121,7 +121,35 @@ func main() {
 
     fmt.Println("Decoded key blob: " + string(key))
 
-    // TODO: Verify keys against blob
-    //       Accept unverified blob if configured to do so
-    //       Output in a format that OpenSSH can understand
+    fmt.Println("Pubkey from config: " + config.Pubkey)
+
+    // Parse the pubkey we'll be verifying with
+    pgpKey, err := crypto.NewKeyFromArmored(config.Pubkey)
+    if err != nil {
+        fmt.Println("Failed to parse key from config file")
+        return
+    }
+
+    // Parse our keys and signature as PGP data
+    pgpMessage := crypto.NewPlainMessageFromString(string(key))
+    pgpSignature := crypto.NewPGPSignature(sig)
+    pgpKeyring, err := crypto.NewKeyRing(pgpKey)
+    if err != nil {
+        fmt.Println("Failed to parse key or signature as valid PGP data")
+        return
+    }
+
+    err = pgpKeyring.VerifyDetached(pgpMessage, pgpSignature, crypto.GetUnixTime())
+    if err != nil {
+        fmt.Println("Failed to verify signature")
+ 
+        // Exit of we aren't allowing unverified signatures
+        if !config.AcceptUnverified {
+            return
+        }
+    }
+
+    fmt.Println("Successfully verified AKDS data")
+
+    // TODO: Output in a format that OpenSSH can understand
 }
