@@ -1,0 +1,9 @@
+# Public key to verify AKDS signatures against
+pubkey = """
+----- BEGIN PGP PUBLIC KEY BLOCK -----
+...
+----- END PGP PUBLIC KEY BLOCK -----
+"""
+
+# Whether to accept data from an AKDS record if it fails verification
+acceptUnverified = false

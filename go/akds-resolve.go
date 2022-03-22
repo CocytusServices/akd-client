@@ -3,17 +3,52 @@ package main
 import (
     "fmt"
     "net"
+    "os"
     "regexp"
     "encoding/base64"
+    "github.com/BurntSushi/toml"
+    "github.com/ProtonMail/gopenpgp/v2/crypto"
 )
 
-func main() {
-    header_pattern := regexp.MustCompile("v=(akds?);")
-    key_pattern := regexp.MustCompile("k=([A-Za-z0-9+/=]+);")
-    sig_pattern := regexp.MustCompile("s=([A-Za-z0-9+/=]+);")
+// Config file format
+type Config struct {
+    pubkey string
+    acceptUnverified bool
+}
 
+// Some patterns for the AKDS record format
+const header_pattern := regexp.MustCompile("v=(akds?);")
+const key_pattern := regexp.MustCompile("k=([A-Za-z0-9+/=]+);")
+const sig_pattern := regexp.MustCompile("s=([A-Za-z0-9+/=]+);")
+
+// Loads config (see Config) in from the given path
+func loadConfig(path string) (Config, error) {
+    // Try read in from the given path
+    tomlData, err := os.ReadFile(path)
+    if err != nil {
+        return nil, err
+    }
+
+    // ...then parse it as TOML
+    var config Config
+    _, err = toml.Decode(tomlData, &config)
+    if err != nil {
+        return nil, err
+    }
+
+    return config, nil
+}
+
+func main() {
+    // Load in config
+    config, err := loadConfig("config.toml")
+    if err != nil {
+        fmt.PrintLn("Failed to load config from config.toml")
+        return
+    }
+
+    // Retrieve AKD(S) records
     records, _ := net.LookupTXT("_akds.tem.party")
-    // I'M ok :)
 
     key_blob := ""
     sig_blob := ""
@@ -72,15 +107,17 @@ func main() {
     fmt.Println("Signature blob: " + sig_blob)
     fmt.Println("Key blob: " + key_blob)
 
+    // Attempt to decode the key blob from base64
     var key []byte
-    //var sig []byte
     key, err := base64.StdEncoding.DecodeString(key_blob)
     if err != nil {
         fmt.Println("Failed to decode key blob: " + err.Error())
         return
     }
 
-    /*if record_type == "akds" {
+    // Do the same for the signature blob if this is an AKDS record
+    /*if record_type == "akds" && config.acceptUnverified == false {
+        var sig []byte
         sig, err = base64.StdEncoding.DecodeString(sig_blob)
         if err != nil {
             fmt.Println("Failed to decode signature:  " + err.Error())
@@ -89,4 +126,8 @@ func main() {
     }*/
 
     fmt.Println("Decoded key blob: " + string(key))
+
+    // TODO: Verify keys against blob
+    //       Accept unverified blob if configured to do so
+    //       Output in a format that OpenSSH can understand
 }
