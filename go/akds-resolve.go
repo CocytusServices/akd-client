@@ -3,7 +3,6 @@ package main
 import (
     "fmt"
     "net"
-    "os"
     "regexp"
     "encoding/base64"
     "github.com/BurntSushi/toml"
@@ -12,8 +11,8 @@ import (
 
 // Config file format
 type Config struct {
-    pubkey string
-    acceptUnverified bool
+    Pubkey string
+    AcceptUnverified bool
 }
 
 // Some patterns for the AKDS record format
@@ -26,13 +25,7 @@ func loadConfig(path string) (Config, error) {
     var config Config
 
     // Try read in from the given path
-    tomlData, err := os.ReadFile(path)
-    if err != nil {
-        return config, err
-    }
-
-    // ...then parse it as TOML
-    _, err = toml.Decode(string(tomlData), &config)
+    _, err := toml.DecodeFile(path, &config)
     if err != nil {
         return config, err
     }
@@ -118,7 +111,7 @@ func main() {
 
     // Do the same for the signature blob if this is an AKDS record
     var sig []byte
-    if record_type == "akds" && config.acceptUnverified == false {
+    if record_type == "akds" && !config.AcceptUnverified {
         sig, err = base64.StdEncoding.DecodeString(sig_blob)
         if err != nil {
             fmt.Println("Failed to decode signature:  " + err.Error())
