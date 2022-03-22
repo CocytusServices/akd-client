@@ -49,7 +49,7 @@ func main() {
     record_type := ""
  
     for _, record := range records {
-        fmt.Println(record)
+        fmt.Println("Record: " + record)
         
         header := header_pattern.FindStringSubmatch(record)
         if len(header) > 1 {
@@ -98,8 +98,18 @@ func main() {
     }
 
     fmt.Println("Record type: " + record_type)
-    fmt.Println("Signature blob: " + sig_blob)
-    fmt.Println("Key blob: " + key_blob)
+    fmt.Print("Has signature? ")
+    if len(sig_blob) > 0 {
+        fmt.Println("Yes")
+    } else {
+        fmt.Println("No")
+    }
+    fmt.Print("Has keys? ")
+    if len(key_blob) > 0 {
+        fmt.Println("Yes")
+    } else {
+        fmt.Println("No")
+    }
 
     // Attempt to decode the key blob from base64
     var key []byte
@@ -111,45 +121,55 @@ func main() {
 
     // Do the same for the signature blob if this is an AKDS record
     var sig []byte
-    if record_type == "akds" && !config.AcceptUnverified {
+    if record_type == "akds" {
         sig, err = base64.StdEncoding.DecodeString(sig_blob)
         if err != nil {
             fmt.Println("Failed to decode signature:  " + err.Error())
-            return
+            if !config.AcceptUnverified { return }
         }
     }
 
-    fmt.Println("Decoded key blob: " + string(key))
+    // Perform signature verification if this is an AKDS record and we have a signature to verify
+    if record_type == "akds" && sig != nil {
+        // Check for missing/empty signature
+        if sig == nil || len(sig) == 0 {
+            fmt.Println("Failed to verify signature: AKDS record has empty or missing signature")
+            
+            // Exit if we aren't accepting unverified signatures
+            if !config.AcceptUnverified { return } 
+           
+        } else {
+            // Parse the pubkey we'll be verifying with
+            pgpKey, err := crypto.NewKeyFromArmored(config.Pubkey)
+            if err != nil {
+                fmt.Println("Failed to parse key from config file")
+                
+                // Exit if we aren't accepting unverified signatures
+                if !config.AcceptUnverified { return }
+            }
 
-    fmt.Println("Pubkey from config: " + config.Pubkey)
+            // Parse our keys and signature as PGP data
+            pgpMessage := crypto.NewPlainMessageFromString(string(key))
+            pgpSignature := crypto.NewPGPSignature(sig)
+            pgpKeyring, err := crypto.NewKeyRing(pgpKey)
+            if err != nil {
+                fmt.Println("Failed to parse key or signature as valid PGP data")
 
-    // Parse the pubkey we'll be verifying with
-    pgpKey, err := crypto.NewKeyFromArmored(config.Pubkey)
-    if err != nil {
-        fmt.Println("Failed to parse key from config file")
-        return
-    }
+                // Exit if we aren't accepting unverified signatures
+                if !config.AcceptUnverified { return }
+            }
 
-    // Parse our keys and signature as PGP data
-    pgpMessage := crypto.NewPlainMessageFromString(string(key))
-    pgpSignature := crypto.NewPGPSignature(sig)
-    pgpKeyring, err := crypto.NewKeyRing(pgpKey)
-    if err != nil {
-        fmt.Println("Failed to parse key or signature as valid PGP data")
-        return
-    }
+            err = pgpKeyring.VerifyDetached(pgpMessage, pgpSignature, 0)
+            if err != nil {
+                fmt.Println("Failed to verify signature: " + err.Error())
+        
+                // Exit of we aren't allowing unverified signatures
+                if !config.AcceptUnverified { return }
+            }
 
-    err = pgpKeyring.VerifyDetached(pgpMessage, pgpSignature, crypto.GetUnixTime())
-    if err != nil {
-        fmt.Println("Failed to verify signature")
- 
-        // Exit of we aren't allowing unverified signatures
-        if !config.AcceptUnverified {
-            return
+            fmt.Println("Successfully verified AKDS data")
         }
     }
-
-    fmt.Println("Successfully verified AKDS data")
 
     // TODO: Output in a format that OpenSSH can understand
 }
