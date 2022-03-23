@@ -165,11 +165,14 @@ func main() {
         
                 // Exit of we aren't allowing unverified signatures
                 if !config.AcceptUnverified { return }
-            }
 
-            fmt.Println("Successfully verified AKDS data")
+                fmt.Println("Accepting unverified AKDS data")
+            } else {
+                fmt.Println("Successfully verified AKDS data")
+            }
         }
     }
 
-    // TODO: Output in a format that OpenSSH can understand
+    // Print out for OpenSSH to handle
+    fmt.Print(string(key))
 }
