@@ -131,7 +131,7 @@ func main() {
     }
 
     // Perform signature verification if this is an AKDS record and we have a signature to verify
-    if record_type == "akds" && sig != nil {
+    if record_type == "akds" {
         // Check for missing/empty signature
         if sig == nil || len(sig) == 0 {
             fmt.Fprintln(os.Stderr, "Failed to verify signature: AKDS record has empty or missing signature")
