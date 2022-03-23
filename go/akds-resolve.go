@@ -2,6 +2,7 @@ package main
 
 import (
     "fmt"
+    "os"
     "net"
     "regexp"
     "encoding/base64"
@@ -37,7 +38,7 @@ func main() {
     // Load in config
     config, err := loadConfig("config.toml")
     if err != nil {
-        fmt.Println("Failed to load config from config.toml")
+        fmt.Fprintln(os.Stderr, "Failed to load config from config.toml")
         return
     }
 
@@ -49,7 +50,7 @@ func main() {
     record_type := ""
  
     for _, record := range records {
-        fmt.Println("Record: " + record)
+        fmt.Fprintln(os.Stderr, "Record: " + record)
         
         header := header_pattern.FindStringSubmatch(record)
         if len(header) > 1 {
@@ -67,10 +68,10 @@ func main() {
                         record_type = "akds"
                         key_blob = key[1]
 
-                        fmt.Println("Failed to extract signature from AKDS record, but found a valid key blob")
+                        fmt.Fprintln(os.Stderr, "Failed to extract signature from AKDS record, but found a valid key blob")
                         break
                     } else {
-                        fmt.Println("Failed to extract key blob and signature from AKDS record!")
+                        fmt.Fprintln(os.Stderr, "Failed to extract key blob and signature from AKDS record!")
                         break
                     }
                 case "akd":
@@ -80,15 +81,15 @@ func main() {
                         key_blob = key[1]
                         break
                     } else {
-                        fmt.Println("Failed to extract a key blob from an AKD record!")
+                        fmt.Fprintln(os.Stderr, "Failed to extract a key blob from an AKD record!")
                         break
                     }
                 default:
-                    fmt.Println("Somehow got here, idk how")
+                    fmt.Fprintln(os.Stderr, "Somehow got here, idk how")
                     break
             }
         } else {
-            fmt.Println("Not a suitable AKD/AKDS record, skipping...")
+            fmt.Fprintln(os.Stderr, "Not a suitable AKD/AKDS record, skipping...")
         }
 
         // Stop iterating once we've found an eligible record
@@ -97,25 +98,25 @@ func main() {
         }
     }
 
-    fmt.Println("Record type: " + record_type)
-    fmt.Print("Has signature? ")
+    fmt.Fprintln(os.Stderr, "Record type: " + record_type)
+    fmt.Fprint(os.Stderr, "Has signature? ")
     if len(sig_blob) > 0 {
-        fmt.Println("Yes")
+        fmt.Fprintln(os.Stderr, "Yes")
     } else {
-        fmt.Println("No")
+        fmt.Fprintln(os.Stderr, "No")
     }
-    fmt.Print("Has keys? ")
+    fmt.Fprint(os.Stderr, "Has keys? ")
     if len(key_blob) > 0 {
-        fmt.Println("Yes")
+        fmt.Fprintln(os.Stderr, "Yes")
     } else {
-        fmt.Println("No")
+        fmt.Fprintln(os.Stderr, "No")
     }
 
     // Attempt to decode the key blob from base64
     var key []byte
     key, err = base64.StdEncoding.DecodeString(key_blob)
     if err != nil {
-        fmt.Println("Failed to decode key blob: " + err.Error())
+        fmt.Fprintln(os.Stderr, "Failed to decode key blob: " + err.Error())
         return
     }
 
@@ -124,7 +125,7 @@ func main() {
     if record_type == "akds" {
         sig, err = base64.StdEncoding.DecodeString(sig_blob)
         if err != nil {
-            fmt.Println("Failed to decode signature:  " + err.Error())
+            fmt.Fprintln(os.Stderr, "Failed to decode signature:  " + err.Error())
             if !config.AcceptUnverified { return }
         }
     }
@@ -133,7 +134,7 @@ func main() {
     if record_type == "akds" && sig != nil {
         // Check for missing/empty signature
         if sig == nil || len(sig) == 0 {
-            fmt.Println("Failed to verify signature: AKDS record has empty or missing signature")
+            fmt.Fprintln(os.Stderr, "Failed to verify signature: AKDS record has empty or missing signature")
             
             // Exit if we aren't accepting unverified signatures
             if !config.AcceptUnverified { return } 
@@ -142,7 +143,7 @@ func main() {
             // Parse the pubkey we'll be verifying with
             pgpKey, err := crypto.NewKeyFromArmored(config.Pubkey)
             if err != nil {
-                fmt.Println("Failed to parse key from config file")
+                fmt.Fprintln(os.Stderr, "Failed to parse key from config file")
                 
                 // Exit if we aren't accepting unverified signatures
                 if !config.AcceptUnverified { return }
@@ -153,7 +154,7 @@ func main() {
             pgpSignature := crypto.NewPGPSignature(sig)
             pgpKeyring, err := crypto.NewKeyRing(pgpKey)
             if err != nil {
-                fmt.Println("Failed to parse key or signature as valid PGP data")
+                fmt.Fprintln(os.Stderr, "Failed to parse key or signature as valid PGP data")
 
                 // Exit if we aren't accepting unverified signatures
                 if !config.AcceptUnverified { return }
@@ -161,14 +162,14 @@ func main() {
 
             err = pgpKeyring.VerifyDetached(pgpMessage, pgpSignature, 0)
             if err != nil {
-                fmt.Println("Failed to verify signature: " + err.Error())
+                fmt.Fprintln(os.Stderr, "Failed to verify signature: " + err.Error())
         
                 // Exit of we aren't allowing unverified signatures
                 if !config.AcceptUnverified { return }
 
-                fmt.Println("Accepting unverified AKDS data")
+                fmt.Fprintln(os.Stderr, "Accepting unverified AKDS data")
             } else {
-                fmt.Println("Successfully verified AKDS data")
+                fmt.Fprintln(os.Stderr, "Successfully verified AKDS data")
             }
         }
     }
