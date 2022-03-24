@@ -6,6 +6,7 @@ import (
     "net"
     "regexp"
     "strings"
+    "flag"
     "encoding/base64"
     "github.com/BurntSushi/toml"
     "github.com/ProtonMail/gopenpgp/v2/crypto"
@@ -18,10 +19,29 @@ type Config struct {
     AcceptUnverified bool
 }
 
+type CliArgs struct {
+    ConfigPath string
+}
+
 // Some patterns for the AKDS record format
 var header_pattern = regexp.MustCompile("v=(akds?);")
 var key_pattern = regexp.MustCompile("k=([A-Za-z0-9+/=]+);")
 var sig_pattern = regexp.MustCompile("s=([A-Za-z0-9+/=]+);")
+
+func parseArgs() CliArgs {
+    var args CliArgs
+
+    // Build args and parse them
+    flag.StringVar(&args.ConfigPath, "c", "", "Path to config file")
+    flag.Parse()
+
+    // Set defaults
+    if args.ConfigPath == "" {
+        args.ConfigPath = "config.toml"
+    }
+
+    return args
+}
 
 // Loads config in from the given path
 func loadConfig(path string) (Config, error) {
@@ -37,10 +57,13 @@ func loadConfig(path string) (Config, error) {
 }
 
 func main() {
+    // Parse CLI args
+    args := parseArgs()
+
     // Load in config
-    config, err := loadConfig("config.toml")
+    config, err := loadConfig(args.ConfigPath)
     if err != nil {
-        fmt.Fprintln(os.Stderr, "Failed to load config from config.toml")
+        fmt.Fprintln(os.Stderr, "Failed to load config from " + args.ConfigPath)
         return
     }
 
