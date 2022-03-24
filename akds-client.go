@@ -150,7 +150,7 @@ func main() {
             }
 
             // Parse our keys and signature as PGP data
-            pgpMessage := crypto.NewPlainMessageFromString(string(key))
+            pgpMessage := crypto.NewPlainMessage(key)
             pgpSignature := crypto.NewPGPSignature(sig)
             pgpKeyring, err := crypto.NewKeyRing(pgpKey)
             if err != nil {
@@ -160,7 +160,7 @@ func main() {
                 if !config.AcceptUnverified { return }
             }
 
-            err = pgpKeyring.VerifyDetached(pgpMessage, pgpSignature, 0)
+            err = pgpKeyring.VerifyDetached(pgpMessage, pgpSignature, crypto.GetUnixTime())
             if err != nil {
                 fmt.Fprintln(os.Stderr, "Failed to verify signature: " + err.Error())
         
