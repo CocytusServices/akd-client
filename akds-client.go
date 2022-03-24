@@ -23,7 +23,7 @@ type CliArgs struct {
     ConfigPath string
 }
 
-// Some patterns for the AKDS record format
+// Some patterns for the AKD/S record format
 var header_pattern = regexp.MustCompile("v=(akds?);")
 var key_pattern = regexp.MustCompile("k=([A-Za-z0-9+/=]+);")
 var sig_pattern = regexp.MustCompile("s=([A-Za-z0-9+/=]+);")
@@ -67,7 +67,7 @@ func main() {
         return
     }
 
-    // Retrieve AKD(S) records
+    // Retrieve AKD/S records
     records, _ := net.LookupTXT(config.RecordName)
 
     var key_blob, sig_blob, record_type string
@@ -107,7 +107,7 @@ func main() {
                 continue
             }
         } else {
-            fmt.Fprintln(os.Stderr, "Not a suitable AKD/AKDS record, skipping...")
+            fmt.Fprintln(os.Stderr, "Not a suitable AKD/S record, skipping...")
         }
 
         // Stop iterating once we've found an eligible record
@@ -118,7 +118,7 @@ func main() {
 
     // Make sure a record was chosen
     if record_type == "" {
-        fmt.Fprintln(os.Stderr, "No suitable AKD/AKDS record found")
+        fmt.Fprintln(os.Stderr, "No suitable AKD/S record found")
         return
     }
 
