@@ -1,0 +1,21 @@
+on: [push, pull_request]
+name: Build AKDS Client
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Golang
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.18.x
+
+    - name: Build AKDS Client 
+      run: go build
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2.2.3
+      with:
+          name: akds-client
+          path: akds-client
