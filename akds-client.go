@@ -100,14 +100,14 @@ func main() {
     }
 
     fmt.Fprintln(os.Stderr, "Record type: " + record_type)
-    fmt.Fprint(os.Stderr, "Has signature? ")
-    if len(sig_blob) > 0 {
+    fmt.Fprint(os.Stderr, "Has keys? ")
+    if len(key_blob) > 0 {
         fmt.Fprintln(os.Stderr, "Yes")
     } else {
         fmt.Fprintln(os.Stderr, "No")
     }
-    fmt.Fprint(os.Stderr, "Has keys? ")
-    if len(key_blob) > 0 {
+    fmt.Fprint(os.Stderr, "Has signature? ")
+    if len(sig_blob) > 0 {
         fmt.Fprintln(os.Stderr, "Yes")
     } else {
         fmt.Fprintln(os.Stderr, "No")
