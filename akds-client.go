@@ -32,7 +32,7 @@ func parseArgs() CliArgs {
     var args CliArgs
 
     // Build args and parse them
-    flag.StringVar(&args.ConfigPath, "c", "", "Path to config file")
+    flag.StringVar(&args.ConfigPath, "c", "", "Path to config file (default: config.toml)")
     flag.Parse()
 
     // Set defaults
