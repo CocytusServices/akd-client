@@ -12,6 +12,7 @@ import (
 
 // Config file format
 type Config struct {
+    RecordName string
     Pubkey string
     AcceptUnverified bool
 }
@@ -43,7 +44,7 @@ func main() {
     }
 
     // Retrieve AKD(S) records
-    records, _ := net.LookupTXT("_akds.tem.party")
+    records, _ := net.LookupTXT(config.RecordName)
 
     key_blob := ""
     sig_blob := ""

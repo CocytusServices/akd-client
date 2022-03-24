@@ -1,3 +1,6 @@
+# Record to query for AKD/S data
+recordName = "_akds.example.com"
+
 # Public key to verify AKDS signatures against
 pubkey = """
 ----- BEGIN PGP PUBLIC KEY BLOCK -----
