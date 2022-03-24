@@ -1,49 +1,36 @@
-# AKD Client
-This is an `AuthorizedKeysCommand`-compatible client for controlling SSH access via AKD or AKDS records stored in DNS.  
-  
+# AKD/S Client
+This is an `AuthorizedKeysCommand`-compatible client for controlling SSH access via AKD or AKDS (AKD/S) records stored in DNS.
 
 ## Setup
-1. Download `akd-client.sh` and place it in `/etc/ssh`
+1. Download `akd-client` and install it wherever it can be accessed by root (`/usr/local/bin/` works fine)
 2. Make sure its owned by root, and is `go-wx`
 3. Add the following line to `/etc/ssh/sshd_config`:  
-`AuthorizedKeysCommand /bin/bash /etc/ssh/akd-client.sh %u %h`
-4. Create the corresponding file in each user's `.ssh/` folder
-  
+`AuthorizedKeysCommand /path/to/akd-client -c %h/.ssh/akds.toml`
+4. Create the corresponding config file in each user's `.ssh/` folder
+5. Restart `sshd`
+
+If you're feeling brave, rename your `authorized_keys` file and try SSH in. If all goes well, you should be let through. If not, try running `akds-client` manually and check the output.
 
 ## Configuration
-There are 3 types of endpoints AKD Client can fetch from:
-1. AKD
-- A DNS record which contains public   
-`~/.ssh/akd:`  
-`_akd.cocytus.services`  
+### DNS
+AKD/S operates using TXT records with either `v=akd;` or `v=akds;` headers. These help differentiate from other TXT-based protocols as well as determine whether the data is cryptographically signed.
 
-2. AKDS
-- AKD, but with an attached GPG signature  
-`~/.ssh/akds:`  
-`_akd.cocytus.services`  
-3. URL
-- A plain ol' URL pointing to an `authorized_keys`-style file  
-`~/.ssh/url:`  
-`https://github.com/NotActuallyTerry.keys`  
-  
+The key format is as follows:  
+- AKD: `v=akd; k=<base64-encoded authorized_keys...>;`  
+- AKDS: `v=akds; k=<base64-encoded authorized_keys...>; s=<base64-encoded PGP signature...>;`  
 
-## AKD Format
+The order of the `k=` and `s=` sections in the AKDS record is arbitrary. Each keypair in the record must start with its identifier (e.g. `k`), followed by `=` and the value, ending with `;`.
 
-AKD is stored in a DNS record in the following form:  
-`v=akd; k=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPXESKtyAsXISE76L65F78IB8dbTLUBB2wRhFJclzHd1 contact@ike.id.au; k=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINP7VeeBHLWFJtAOdbEriYml5rl08szuthQii1GBcBtr terry@ceilingfan.ike.id.au;`  
+The `authorized_keys` data is plainly visible, albeit encoded in Base64, so it can easily be pulled out with a DNS request by hand if needed.
 
-The record MUST start with `v=akd;` and MUST contain ONE OR MORE pubkeys starting with `k=`, with each entry ending in a semicolon.
-  
+Here is an example record value using AKDS:
+```
+v=akds; s=iHUEABYKAB0WIQQ3uvv2LpbDyGv3Lm7MdkksvhHnFQUCYjxAQwAKCRDMdkksvhHnFUZiAQC2BM76AzoprX+KEcrJWyr6e5wODi3wbvLLUzBh7PnX8gEA0caQEWB890KlufnEaWy84WvVXNR1O8iIbWGFEFLMzQ8=; k=c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUY1dld0eE54S2FFUllZUjNaMzRhV1JSYlZPQm5Hd3ZTMUgrd0VsdXpNalogdG9tQGljZTUudGVtLnBhcnR5CnNzaC1lZDI1NTE5IEFBQUFDM056YUMxbFpESTFOVEU1QUFBQUlJVGJDdmpTOGFtN00rb3JBbmdLYTlKTGV0U29mS2ZuVmpOVm5lL1QvRWROIHRvbUB3aW4uaWNlNS50ZW0ucGFydHkKc3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUJHdkw1RVJEZ2ZKQmhydEZUOTkzNFpCcEZjRGI2andaOGQ0YnVPT2JVL2QgdG9tQHV0aWxpYm9vay50ZW0ucGFydHkKc3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUlLQlh6MkNwclVwWVJOOSt5VW9sc3NiMC9naU0zc2NRMkY0UVVZaXRyVnkgdG9tQG1hY2Jvb2sudGVtLnBhcnR5CnNzaC1lZDI1NTE5IEFBQUFDM056YUMxbFpESTFOVEU1QUFBQUlCdXZSc29GNHhpL2NQcEd5RE4yUkt6NzlNOE02NklvYytyS0RaVFc3dnJLIHRvbUBlZGdlMjAudGVtLnBhcnR5;
+```
 
-## AKDS Format
+The signature entry (`s=`) is created by making an AKD record as above, signing it using GPG, and base64 encoding it. This can be achieved by piping the record into the STDIN of `gpg -s | base64`.
 
-AKDS is stored in a DNS record in the following form:  
-`k=akds; s=owGbwMvMwCEmmR69+cfzyGuMpw8oJTEkSSSvK7NNzE6xVsi2LS7O0E1NMTI1NbRUcAQCZ2O/qkRn
-w5woF09DvxBXU5CYZ0CEa7B3SaVjcYRnsKu5mY+ZqZu5haeTRUpSiE+ok5NReVCGm1dyTpVHiqFC
-cn5eSWJyiUNmdqpeZopeYinRtvgFmIelpjp5+IS7eZU4+qckuRZlRubmmBblGFgUV5WWZARmZhq6
-OyU7lRQplKQWFVU6JKdm5mTmpacl5ukhrOPqKGVhEONgkBVTZNnm6dj36MJqG4feP32wQGBlAgbA
-RgYuTgGYCJMNI0OD5d02D1eNslfOsZIO9xmFGzx74qPnnkuxk5065VjJRAmGfwZK+vneqa4VHfff
-Cjw5d9Rrp/PmZzwTTE4oOimcfrtyBh8A`  
+### `akds-client`
+The client needs to be configured with the record it will be checking and, optionally if using AKDS, the public key to verify the AKDS record against. By default `akds-client` will try read this in from `./config.toml`, but you can change this by specifying a path with the `-c` argument.
 
-The record MUST start with `v=akds;` and MUST contain ONE signature entry.  
-The signature entry (`s=`) is created by making an AKD record as above, signing it using GPG, and base64 encoding it. This can be achieved by piping the record into the STDIN of `gpg -s | base64`
+See [config.toml](/config.toml) for a template.
