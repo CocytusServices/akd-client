@@ -1,15 +1,15 @@
-# AKD/S Client
-This is an `AuthorizedKeysCommand`-compatible client for controlling SSH access via AKD or AKDS (AKD/S) records stored in DNS.
+# AKD Client
+This is an `AuthorizedKeysCommand`-compatible client for controlling SSH access via AKD (**a**uthorized_**k**eys **d**istribution) or AKDS (**a**uthorized_**k**eys **d**istribution, **s**igned) records stored in DNS.
 
 ## Setup
 1. Download `akd-client` and install it wherever it can be accessed by root (`/usr/local/bin/` works fine)
 2. Make sure its owned by root, and is `go-wx`
 3. Add the following line to `/etc/ssh/sshd_config`:  
-`AuthorizedKeysCommand /path/to/akd-client -c %h/.ssh/akds.toml`
+`AuthorizedKeysCommand /path/to/akd-client -c %h/.ssh/akd.toml`
 4. Create the corresponding config file in each user's `.ssh/` folder
 5. Restart `sshd`
 
-If you're feeling brave, rename your `authorized_keys` file and try SSH in. If all goes well, you should be let through. If not, try running `akds-client` manually and check the output.
+If you're feeling brave, rename your `authorized_keys` file and try SSH in. If all goes well, you should be let through. If not, try running `akd-client` manually and check the output.
 
 ## Configuration
 ### DNS
@@ -21,7 +21,7 @@ The key format is as follows:
 
 The order of the `k=` and `s=` sections in the AKDS record is arbitrary. Each keypair in the record must start with its identifier (e.g. `k`), followed by `=` and the value, ending with `;`.
 
-The `authorized_keys` data is plainly visible, albeit encoded in Base64, so it can easily be pulled out with a DNS request by hand if needed.
+The `authorized_keys` data is only encoded in Base64, so it can easily be pulled out with a DNS request and decoded manually if needed.
 
 Here is an example record value using AKDS:
 ```
@@ -30,7 +30,7 @@ v=akds; s=iHUEABYKAB0WIQQ3uvv2LpbDyGv3Lm7MdkksvhHnFQUCYjxAQwAKCRDMdkksvhHnFUZiAQ
 
 The signature entry (`s=`) is created by making an AKD record as above, signing it using GPG, and base64 encoding it. This can be achieved by piping the record into the STDIN of `gpg -s | base64`.
 
-### `akds-client`
-The client needs to be configured with the record it will be checking and, optionally if using AKDS, the public key to verify the AKDS record against. By default `akds-client` will try read this in from `./config.toml`, but you can change this by specifying a path with the `-c` argument.
+### `akd-client`
+The client needs to be configured with the record it will be checking and (optionally if using AKDS) the public key to verify the AKDS record against. By default `akd-client` will try read this in from `./config.toml`, but you can change this by specifying a path with the `-c` argument.
 
 See [config.toml](/config.toml) for a template.

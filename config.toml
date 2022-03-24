@@ -9,6 +9,5 @@ pubkey = """
 """
 
 # Whether to accept data from an AKDS record if it fails verification
-# Note that this will in essence treat all records as AKD records. Failed or
-# missing signatures on AKDS records will produce a warning instead of an error.
+# Missing signatures on AKDS records will always produce an error
 acceptUnverified = false
