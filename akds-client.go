@@ -5,6 +5,7 @@ import (
     "os"
     "net"
     "regexp"
+    "strings"
     "encoding/base64"
     "github.com/BurntSushi/toml"
     "github.com/ProtonMail/gopenpgp/v2/crypto"
@@ -46,48 +47,41 @@ func main() {
     // Retrieve AKD(S) records
     records, _ := net.LookupTXT(config.RecordName)
 
-    key_blob := ""
-    sig_blob := ""
-    record_type := ""
+    var key_blob, sig_blob, record_type string
  
     for _, record := range records {
+        key_blob = ""
+        sig_blob = ""
+        record_type = ""
+
         fmt.Fprintln(os.Stderr, "Record: " + record)
         
         header := header_pattern.FindStringSubmatch(record)
         if len(header) > 1 {
-            switch header[1] {
-                case "akds":
-                    // Try extract the signature blob
-                    sig := sig_pattern.FindStringSubmatch(record)
-                    key := key_pattern.FindStringSubmatch(record)
-                    if len(sig) > 1 && len(key) > 1 {
-                        record_type = "akds"
-                        sig_blob = sig[1]
-                        key_blob = key[1]
-                        break
-                    } else if len(key) > 1 {
-                        record_type = "akds"
-                        key_blob = key[1]
+            record_type = header[1]
+            key_match := key_pattern.FindStringSubmatch(record)
+            sig_match := sig_pattern.FindStringSubmatch(record)
 
-                        fmt.Fprintln(os.Stderr, "Failed to extract signature from AKDS record, but found a valid key blob")
-                        break
-                    } else {
-                        fmt.Fprintln(os.Stderr, "Failed to extract key blob and signature from AKDS record!")
-                        break
-                    }
-                case "akd":
-                    key := key_pattern.FindStringSubmatch(record)
-                    if len(key) > 1 {
-                        record_type = "akd"
-                        key_blob = key[1]
-                        break
-                    } else {
-                        fmt.Fprintln(os.Stderr, "Failed to extract a key blob from an AKD record!")
-                        break
-                    }
-                default:
-                    fmt.Fprintln(os.Stderr, "Somehow got here, idk how")
-                    break
+            // Try parse the two blobs (if present)
+            if len(sig_match) > 1 {
+                sig_blob = sig_match[1]
+            }
+            if len(key_match) > 1 {
+                key_blob = key_match[1]
+            }
+    
+            // Ensure AKDS record has a signature blob
+            if record_type == "akds" && sig_blob == "" {
+                fmt.Fprintln(os.Stderr, "Failed to extract signature from AKDS record")
+                record_type = ""
+                continue
+            }
+
+            // Ensure there is a key blob
+            if key_blob == "" {
+                fmt.Fprintln(os.Stderr, "Failed to extract a key blob from " + strings.ToUpper(record_type) + " record!")
+                record_type = ""
+                continue
             }
         } else {
             fmt.Fprintln(os.Stderr, "Not a suitable AKD/AKDS record, skipping...")
@@ -97,6 +91,12 @@ func main() {
         if record_type != "" {
             break
         }
+    }
+
+    // Make sure a record was chosen
+    if record_type == "" {
+        fmt.Fprintln(os.Stderr, "No suitable AKD/AKDS record found")
+        return
     }
 
     fmt.Fprintln(os.Stderr, "Record type: " + record_type)
@@ -136,10 +136,7 @@ func main() {
         // Check for missing/empty signature
         if sig == nil || len(sig) == 0 {
             fmt.Fprintln(os.Stderr, "Failed to verify signature: AKDS record has empty or missing signature")
-            
-            // Exit if we aren't accepting unverified signatures
-            if !config.AcceptUnverified { return } 
-           
+            return
         } else {
             // Parse the pubkey we'll be verifying with
             pgpKey, err := crypto.NewKeyFromArmored(config.Pubkey)
@@ -165,7 +162,7 @@ func main() {
             if err != nil {
                 fmt.Fprintln(os.Stderr, "Failed to verify signature: " + err.Error())
         
-                // Exit of we aren't allowing unverified signatures
+                // Exit if we aren't allowing unverified signatures
                 if !config.AcceptUnverified { return }
 
                 fmt.Fprintln(os.Stderr, "Accepting unverified AKDS data")
