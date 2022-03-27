@@ -202,7 +202,7 @@ func main() {
         }
 
         if verified && err == nil {
-            fmt.Println("Successfully verified AKDS data")
+            fmt.Fprintln(os.Stderr, "Successfully verified AKDS data")
         } else {
             fmt.Fprintln(os.Stderr, "Accepting unverified AKDS data")
         }
