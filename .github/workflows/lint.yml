@@ -1,0 +1,22 @@
+name: Lint akd-client
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - main
+      - dev
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  golangci:
+    name: Run linter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: latest
