@@ -16,7 +16,8 @@ import (
 // Config file format
 type Config struct {
     RecordName string
-    Pubkey string
+    PubkeyStr string `toml:"Pubkey"`
+    pubkey *crypto.Key
     AcceptUnverified bool
 }
 
@@ -54,6 +55,16 @@ func loadConfig(path string) (Config, error) {
         return config, err
     }
 
+    // Parse the pubkey if we've been given one
+    if config.PubkeyStr != "" {
+        key, err := crypto.NewKeyFromArmored(config.PubkeyStr)
+        if err != nil {
+            return config, errors.New("Failed to parse key from config file")
+        } else {
+            config.pubkey = key
+        }
+    }
+
     return config, nil
 }
 
@@ -86,8 +97,32 @@ func parseAKDRecord(record string) (string, string, string, error) {
     } else {
         return "", "", "", errors.New("Not a suitable AKD/S record")
     }
-
+    
     return record_type, key_blob, sig_blob, nil
+}
+
+func verifySignature(data []byte, sig []byte, pubkey *crypto.Key) (bool, error) {
+    // Check for missing/empty signature
+    if sig == nil || len(sig) == 0 {
+        return false, errors.New("Failed to verify signature: AKDS record has empty or missing signature")
+    } else {
+        // Ensure we have a pubkey to verify with
+        if pubkey == nil {
+            return false, errors.New("No pubkey specified, cannot verify AKDS record")
+        }
+
+        // Parse our keys and signature as PGP data
+        pgpMessage := crypto.NewPlainMessage(data)
+        pgpSignature := crypto.NewPGPSignature(sig)
+        pgpKeyring, err := crypto.NewKeyRing(pubkey)
+        if err != nil {
+            return false, errors.New("Failed to parse key or signature as valid PGP data")
+        }
+
+        // Verify the signature
+        err = pgpKeyring.VerifyDetached(pgpMessage, pgpSignature, crypto.GetUnixTime())
+        return err == nil, nil
+    }
 }
 
 func main() {
@@ -97,7 +132,7 @@ func main() {
     // Load in config
     config, err := loadConfig(args.ConfigPath)
     if err != nil {
-        fmt.Fprintln(os.Stderr, "Failed to load config from " + args.ConfigPath)
+        fmt.Fprintln(os.Stderr, "Failed to load config from " + args.ConfigPath + ": " + err.Error())
         return
     }
 
@@ -160,42 +195,16 @@ func main() {
 
     // Perform signature verification if this is an AKDS record and we have a signature to verify
     if record_type == "akds" {
-        // Check for missing/empty signature
-        if sig == nil || len(sig) == 0 {
-            fmt.Fprintln(os.Stderr, "Failed to verify signature: AKDS record has empty or missing signature")
-            return
+        verified, err := verifySignature(key, sig, config.pubkey)
+        if err != nil {
+            fmt.Fprintln(os.Stderr, "Failed to verify AKDS signature: " + err.Error())
+            if !config.AcceptUnverified { return }
+        }
+
+        if verified && err == nil {
+            fmt.Println("Successfully verified AKDS data")
         } else {
-            // Parse the pubkey we'll be verifying with
-            pgpKey, err := crypto.NewKeyFromArmored(config.Pubkey)
-            if err != nil {
-                fmt.Fprintln(os.Stderr, "Failed to parse key from config file")
-                
-                // Exit if we aren't accepting unverified signatures
-                if !config.AcceptUnverified { return }
-            }
-
-            // Parse our keys and signature as PGP data
-            pgpMessage := crypto.NewPlainMessage(key)
-            pgpSignature := crypto.NewPGPSignature(sig)
-            pgpKeyring, err := crypto.NewKeyRing(pgpKey)
-            if err != nil {
-                fmt.Fprintln(os.Stderr, "Failed to parse key or signature as valid PGP data")
-
-                // Exit if we aren't accepting unverified signatures
-                if !config.AcceptUnverified { return }
-            }
-
-            err = pgpKeyring.VerifyDetached(pgpMessage, pgpSignature, crypto.GetUnixTime())
-            if err != nil {
-                fmt.Fprintln(os.Stderr, "Failed to verify signature: " + err.Error())
-        
-                // Exit if we aren't allowing unverified signatures
-                if !config.AcceptUnverified { return }
-
-                fmt.Fprintln(os.Stderr, "Accepting unverified AKDS data")
-            } else {
-                fmt.Fprintln(os.Stderr, "Successfully verified AKDS data")
-            }
+            fmt.Fprintln(os.Stderr, "Accepting unverified AKDS data")
         }
     }
 
