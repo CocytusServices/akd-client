@@ -7,6 +7,7 @@ import (
     "regexp"
     "strings"
     "flag"
+    "errors"
     "encoding/base64"
     "github.com/BurntSushi/toml"
     "github.com/ProtonMail/gopenpgp/v2/crypto"
@@ -56,6 +57,39 @@ func loadConfig(path string) (Config, error) {
     return config, nil
 }
 
+func parseAKDRecord(record string) (string, string, string, error) {
+    var record_type, key_blob, sig_blob string
+
+    header := header_pattern.FindStringSubmatch(record)
+    if len(header) > 1 {
+        record_type = header[1]
+        key_match := key_pattern.FindStringSubmatch(record)
+        sig_match := sig_pattern.FindStringSubmatch(record)
+
+        // Try parse the two blobs (if present)
+        if len(sig_match) > 1 {
+            sig_blob = sig_match[1]
+        }
+        if len(key_match) > 1 {
+            key_blob = key_match[1]
+        }
+
+        // Ensure AKDS record has a signature blob
+        if record_type == "akds" && sig_blob == "" {
+            return "", "", "", errors.New("Failed to extract signature from AKDS record")
+        }
+
+        // Ensure there is a key blob
+        if key_blob == "" {
+            return "", "", "", errors.New("Failed to extract a key blob from " + strings.ToUpper(record_type) + " record")
+        }
+    } else {
+        return "", "", "", errors.New("Not a suitable AKD/S record")
+    }
+
+    return record_type, key_blob, sig_blob, nil
+}
+
 func main() {
     // Parse CLI args
     args := parseArgs()
@@ -70,50 +104,20 @@ func main() {
     // Retrieve AKD/S records
     records, _ := net.LookupTXT(config.RecordName)
 
-    var key_blob, sig_blob, record_type string
- 
+    var record_type, key_blob, sig_blob string
     for _, record := range records {
-        key_blob = ""
-        sig_blob = ""
-        record_type = ""
-
         fmt.Fprintln(os.Stderr, "Record: " + record)
         
-        header := header_pattern.FindStringSubmatch(record)
-        if len(header) > 1 {
-            record_type = header[1]
-            key_match := key_pattern.FindStringSubmatch(record)
-            sig_match := sig_pattern.FindStringSubmatch(record)
-
-            // Try parse the two blobs (if present)
-            if len(sig_match) > 1 {
-                sig_blob = sig_match[1]
-            }
-            if len(key_match) > 1 {
-                key_blob = key_match[1]
-            }
-    
-            // Ensure AKDS record has a signature blob
-            if record_type == "akds" && sig_blob == "" {
-                fmt.Fprintln(os.Stderr, "Failed to extract signature from AKDS record")
-                record_type = ""
-                continue
-            }
-
-            // Ensure there is a key blob
-            if key_blob == "" {
-                fmt.Fprintln(os.Stderr, "Failed to extract a key blob from " + strings.ToUpper(record_type) + " record!")
-                record_type = ""
-                continue
-            }
-        } else {
-            fmt.Fprintln(os.Stderr, "Not a suitable AKD/S record, skipping...")
+        // Try parse the record out into its constituent blobs
+        var err error
+        record_type, key_blob, sig_blob, err = parseAKDRecord(record)
+        if err != nil {
+            fmt.Fprintln(os.Stderr, "Failed to parse record: " + err.Error())
+            continue
         }
 
         // Stop iterating once we've found an eligible record
-        if record_type != "" {
-            break
-        }
+        break
     }
 
     // Make sure a record was chosen
