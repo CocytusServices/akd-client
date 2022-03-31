@@ -105,7 +105,7 @@ func parseAKDRecord(record string) (string, string, string, error) {
 
 func verifySignature(data []byte, sig []byte, pubkey *crypto.Key) (bool, error) {
     // Check for missing/empty signature
-    if sig == nil || len(sig) == 0 {
+    if len(sig) == 0 {
         return false, errors.New("Failed to verify signature: AKDS record has empty or missing signature")
     } else {
         // Ensure we have a pubkey to verify with
