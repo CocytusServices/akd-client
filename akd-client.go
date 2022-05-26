@@ -10,6 +10,7 @@ import (
     "errors"
     "bufio"
     "encoding/base64"
+    "golang.org/x/crypto/ssh"
     "github.com/BurntSushi/toml"
     "github.com/ProtonMail/gopenpgp/v2/crypto"
 )
@@ -30,7 +31,6 @@ type CliArgs struct {
 var header_pattern = regexp.MustCompile("v=(akds?);")
 var key_pattern = regexp.MustCompile("k=([A-Za-z0-9+/=]+);")
 var sig_pattern = regexp.MustCompile("s=([A-Za-z0-9+/=]+);")
-var authorized_keys_pattern = regexp.MustCompile("^(?:#.*|(?:(?:(?:no-)?(?:(?:agent|port|X11)-forwarding|pty|user-rc)|cert-authority|(?:no-touch|verify)-required|restrict|(?:command|environment|expiry-time|from|permit(?:listen|open)|principals|tunnel)=\".+\")(?:,(?:(?:no-)?(?:(?:agent|port|X11)-forwarding|pty|user-rc)|cert-authority|(?:no-touch|verify)-required|restrict|(?:command|environment|expiry-time|from|permit(?:listen|open)|principals|tunnel)=\".+\"))* )?(?:sk-(?:ecdsa-sha2-nistp256|ssh-ed25519)@openssh\\.com|ecdsa-sha2-nistp(?:256|384|521)|ssh-(?:ed25519|dss|rsa)) .+(?: .*)?)?$")
 
 func parseArgs() CliArgs {
     var args CliArgs
@@ -130,8 +130,9 @@ func verifySignature(data []byte, sig []byte, pubkey *crypto.Key) (bool, error) 
 func validateAuthorizedKeys(keys string) (bool, error) {
     scanner := bufio.NewScanner(strings.NewReader(keys))
     for scanner.Scan() {
-        if !authorized_keys_pattern.MatchString(scanner.Text()) {
-            return false, nil
+        _, _, _, _, err := ssh.ParseAuthorizedKey(scanner.Bytes())
+        if err != nil {
+            return false, err
         }
     }
 
