@@ -211,7 +211,7 @@ func main() {
     var valid bool
     valid, err = validateAuthorizedKeys(string(key))
     if err != nil || !valid {
-        fmt.Fprintln(os.Stderr, "Failed to validate keys")
+        fmt.Fprintln(os.Stderr, "Failed to validate key blob format")
         return
     }
 
