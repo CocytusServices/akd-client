@@ -11,3 +11,11 @@ pubkey = """
 # Whether to accept data from an AKDS record if it fails verification
 # Missing signatures on AKDS records will always produce an error
 acceptUnverified = false
+
+# Whether to overwrite authorized_keys with AKD/S results
+overwriteAuthorizedKeys = false
+
+# Path to authorized_keys
+# Relative paths are relative to this config file
+# Only applies if overwriteAuthorizedKeysFile is set to true
+authorizedKeysPath = "authorized_keys"
