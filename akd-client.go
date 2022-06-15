@@ -9,6 +9,8 @@ import (
     "flag"
     "errors"
     "bufio"
+    "syscall"
+    "path/filepath"
     "encoding/base64"
     "github.com/BurntSushi/toml"
     "github.com/ProtonMail/gopenpgp/v2/crypto"
@@ -16,10 +18,12 @@ import (
 
 // Config file format
 type Config struct {
-    RecordName string
-    PubkeyStr string `toml:"Pubkey"`
-    pubkey *crypto.Key
-    AcceptUnverified bool
+    RecordName              string
+    PubkeyStr               string `toml:"Pubkey"`
+    pubkey                  *crypto.Key
+    AcceptUnverified        bool
+    OverwriteAuthorizedKeys bool
+    AuthorizedKeysPath      string
 }
 
 type CliArgs struct {
@@ -65,6 +69,11 @@ func loadConfig(path string) (Config, error) {
         } else {
             config.pubkey = key
         }
+    }
+
+    // Ensure we have an authorized_keys path if we want to write to it
+    if config.OverwriteAuthorizedKeys && config.AuthorizedKeysPath == "" {
+        return config, errors.New("Missing authorizedKeysPath when overwriteAuthorizedKeys = true")
     }
 
     return config, nil
@@ -231,4 +240,55 @@ func main() {
 
     // Print out for OpenSSH to handle
     fmt.Print(string(key))
+
+    // Try writing out to authorized_keys, if enabled
+    if config.OverwriteAuthorizedKeys {
+        var err error
+        var path string
+        if filepath.IsAbs(config.AuthorizedKeysPath) {
+            // Absolute
+            path = config.AuthorizedKeysPath
+        } else {
+            // Relative
+            path = filepath.Join(filepath.Dir(args.ConfigPath), config.AuthorizedKeysPath)
+        }
+
+        // Create or truncate the file
+        file, err := os.Create(path)
+        if err != nil {
+            fmt.Fprintln(os.Stderr, "Failed to create authorized_keys file at "+path)
+            return
+        }
+
+        // Write out the keys
+        file.Write(key)
+
+        // Change the file permissions to 600
+        err = file.Chmod(0600)
+        if err != nil {
+            fmt.Fprintln(os.Stderr, "Failed to change file permissions on "+path)
+            err = nil // Failed permissions, but keep going to try ownership
+        }
+
+        // Mirror ownership of parent dir
+        parentDir := filepath.Dir(path)
+        var parentDirInfo os.FileInfo
+        parentDirInfo, err = os.Stat(parentDir)
+        if err != nil {
+            fmt.Fprintln(os.Stderr, "Failed to stat "+parentDir)
+            return
+        }
+        parentDirStat := parentDirInfo.Sys().(*syscall.Stat_t)
+        if err != nil {
+            fmt.Fprintln(os.Stderr, "Failed to get syscall stat for "+parentDir)
+            return
+        }
+        err = file.Chown(int(parentDirStat.Uid), int(parentDirStat.Gid))
+        if err != nil {
+            fmt.Fprintf(os.Stderr, "Failed to set file ownership on %s to %d:%d: %v\n", path, parentDirStat.Uid, parentDirStat.Gid, err)
+        }
+
+        // Clean up
+        file.Close()
+    }
 }
