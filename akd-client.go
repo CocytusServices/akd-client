@@ -262,7 +262,11 @@ func main() {
         }
 
         // Write out the keys
-        file.Write(key)
+        _, err = file.Write(key)
+        if err != nil {
+            fmt.Fprintln(os.Stderr, "Failed to write authorized_keys file to "+path)
+            return
+        }
 
         // Change the file permissions to 600
         err = file.Chmod(0600)
