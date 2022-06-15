@@ -272,7 +272,7 @@ func main() {
         err = file.Chmod(0600)
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to change file permissions on "+path)
-            err = nil // Failed permissions, but keep going to try ownership
+            // Failed permissions, but keep going to try ownership
         }
 
         // Mirror ownership of parent dir
