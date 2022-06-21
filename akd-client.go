@@ -3,6 +3,7 @@ package main
 import (
     "fmt"
     "os"
+    "io"
     "net"
     "regexp"
     "strings"
@@ -10,6 +11,7 @@ import (
     "errors"
     "bufio"
     "syscall"
+    "net/http"
     "path/filepath"
     "encoding/base64"
     "golang.org/x/crypto/ssh"
@@ -216,9 +218,23 @@ func getAKDKeys(record_name string, pubkey *crypto.Key, accept_unverified bool) 
 // Gets authorised keys from the given URL.
 // Returns the key list and any error encountered
 func getUrlKeys(url string) (string, error) {
-    return "", nil
-}
+    response, err := http.Get(url)
+    if err != nil {
+        return "", errors.New("Error when requesting URL: " + err.Error())
+    }
 
+    if response.StatusCode >= 400 {
+        return "", errors.New("Unsuccessful response code when requesting URL: " + response.Status)
+    }
+
+    defer response.Body.Close()
+    body, err := io.ReadAll(response.Body)
+    if err != nil {
+        return "", errors.New("Failed to read response body: " + err.Error())
+    }
+
+    return string(body), nil
+}
 
 func main() {
     // Parse CLI args
