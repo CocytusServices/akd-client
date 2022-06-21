@@ -22,6 +22,7 @@ type Config struct {
     RecordName              string
     PubkeyStr               string `toml:"Pubkey"`
     pubkey                  *crypto.Key
+    Url                     string
     AcceptUnverified        bool
     OverwriteAuthorizedKeys bool
     AuthorizedKeysPath      string
@@ -61,8 +62,13 @@ func loadConfig(path string) (Config, error) {
         return config, err
     }
 
+    // Ensure we've been given either a record name or URL
+    if config.RecordName == "" && config.Url == "" {
+        return config, errors.New("No value for RecordName or Url provided, cannot retrieve any keys")
+    }
+
     // Parse the pubkey if we've been given one
-    if config.PubkeyStr != "" {
+    if config.RecordName != "" && config.PubkeyStr != "" {
         key, err := crypto.NewKeyFromArmored(config.PubkeyStr)
         if err != nil {
             return config, errors.New("Failed to parse key from config file")
@@ -148,24 +154,16 @@ func validateAuthorizedKeys(keys string) (bool, error) {
     return true, scanner.Err()
 }
 
-func main() {
-    // Parse CLI args
-    args := parseArgs()
-
-    // Load in config
-    config, err := loadConfig(args.ConfigPath)
-    if err != nil {
-        fmt.Fprintln(os.Stderr, "Failed to load config from " + args.ConfigPath + ": " + err.Error())
-        return
-    }
-
+// Gets authorised keys from an AKD/S record in DNS.
+// Returns the key list, whether it was verified with PGP, and any error encountered
+func getAKDKeys(record_name string, pubkey *crypto.Key, accept_unverified bool) (string, bool, error) {
     // Retrieve AKD/S records
-    records, _ := net.LookupTXT(config.RecordName)
+    records, _ := net.LookupTXT(record_name)
 
     var record_type, key_blob, sig_blob string
     for _, record := range records {
         fmt.Fprintln(os.Stderr, "Record: " + record)
-        
+
         // Try parse the record out into its constituent blobs
         var err error
         record_type, key_blob, sig_blob, err = parseAKDRecord(record)
@@ -180,67 +178,98 @@ func main() {
 
     // Make sure a record was chosen
     if record_type == "" {
-        fmt.Fprintln(os.Stderr, "No suitable AKD/S record found")
-        return
-    }
-
-    fmt.Fprintln(os.Stderr, "Record type: " + record_type)
-    fmt.Fprint(os.Stderr, "Has keys? ")
-    if len(key_blob) > 0 {
-        fmt.Fprintln(os.Stderr, "Yes")
-    } else {
-        fmt.Fprintln(os.Stderr, "No")
-    }
-    fmt.Fprint(os.Stderr, "Has signature? ")
-    if len(sig_blob) > 0 {
-        fmt.Fprintln(os.Stderr, "Yes")
-    } else {
-        fmt.Fprintln(os.Stderr, "No")
+        return "", false, errors.New("No suitable AKD/S record found")
+    } else if record_type == "akd" && !accept_unverified {
+        return "", false, errors.New("Found AKD record but not accepting unverified records")
     }
 
     // Attempt to decode the key blob from base64
-    var key []byte
-    key, err = base64.StdEncoding.DecodeString(key_blob)
+    key, err := base64.StdEncoding.DecodeString(key_blob)
     if err != nil {
-        fmt.Fprintln(os.Stderr, "Failed to decode key blob: " + err.Error())
+        return "", false, errors.New("Failed to decode key blob: " + err.Error())
+    }
+
+    var sig []byte
+    if record_type == "akds" {
+        // Attempt to decode the signature blob
+        sig, err = base64.StdEncoding.DecodeString(sig_blob)
+        if err != nil {
+            if !accept_unverified {
+                return "", false, errors.New("Failed to decode signature: " + err.Error())
+            } else {
+                fmt.Fprintln(os.Stderr, "Failed to decode signature:  " + err.Error())
+            }
+        }
+
+        // Perform signature verification if we have a signature to verify
+        verified, err := verifySignature(key, sig, pubkey)
+        if err != nil && !accept_unverified {
+            return "", false, errors.New("Failed to verify AKDS signature: " + err.Error())
+        }
+
+        return string(key), (verified && err == nil), nil
+    } else {
+        return string(key), false, nil
+    }
+}
+
+// Gets authorised keys from the given URL.
+// Returns the key list and any error encountered
+func getUrlKeys(url string) (string, error) {
+    return "", nil
+}
+
+
+func main() {
+    // Parse CLI args
+    args := parseArgs()
+
+    // Load in config
+    config, err := loadConfig(args.ConfigPath)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, "Failed to load config from " + args.ConfigPath + ": " + err.Error())
         return
     }
 
-    // Do the same for the signature blob if this is an AKDS record
-    var sig []byte
-    if record_type == "akds" {
-        sig, err = base64.StdEncoding.DecodeString(sig_blob)
+    // Prioritise AKD if possible
+    var keys string
+    if config.RecordName != "" {
+        var verified bool
+        keys, verified, err = getAKDKeys(config.RecordName, config.pubkey, config.AcceptUnverified)
         if err != nil {
-            fmt.Fprintln(os.Stderr, "Failed to decode signature:  " + err.Error())
-            if !config.AcceptUnverified { return }
+            // Print out the error but don't return yet, we'll give the URL a try
+            fmt.Fprintln(os.Stderr, "Failed to get keys from AKD/S record: " + err.Error())
+        } else  {
+            if verified {
+                fmt.Fprintln(os.Stderr, "Successfully verified AKDS data")
+            } else {
+                fmt.Fprintln(os.Stderr, "Accepting unverified AKDS data")
+            }
         }
+    }
+
+    // Fall back to URL if AKD not available
+    if (err != nil || config.RecordName == "") && config.Url != "" {
+        keys, err = getUrlKeys(config.Url)
+        if err != nil {
+            fmt.Fprintln(os.Stderr, "Failed to get keys from URL: " + err.Error())
+            return
+        }
+    } else if err != nil {
+        fmt.Fprintln(os.Stderr, "Failed to get any keys: " + err.Error())
+        return
     }
 
     // Validate the key blob to ensure it conforms with the OpenSSH authorized_keys format
     var valid bool
-    valid, err = validateAuthorizedKeys(string(key))
+    valid, err = validateAuthorizedKeys(keys)
     if err != nil || !valid {
         fmt.Fprintln(os.Stderr, "Failed to validate key blob format")
         return
     }
 
-    // Perform signature verification if this is an AKDS record and we have a signature to verify
-    if record_type == "akds" {
-        verified, err := verifySignature(key, sig, config.pubkey)
-        if err != nil {
-            fmt.Fprintln(os.Stderr, "Failed to verify AKDS signature: " + err.Error())
-            if !config.AcceptUnverified { return }
-        }
-
-        if verified && err == nil {
-            fmt.Fprintln(os.Stderr, "Successfully verified AKDS data")
-        } else {
-            fmt.Fprintln(os.Stderr, "Accepting unverified AKDS data")
-        }
-    }
-
     // Print out for OpenSSH to handle
-    fmt.Print(string(key))
+    fmt.Print(keys)
 
     // Try writing out to authorized_keys, if enabled
     if config.OverwriteAuthorizedKeys {
@@ -262,7 +291,7 @@ func main() {
         }
 
         // Write out the keys
-        _, err = file.Write(key)
+        _, err = file.Write([]byte(keys))
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to write authorized_keys file to "+path)
             return
