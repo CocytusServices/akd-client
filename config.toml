@@ -12,6 +12,13 @@ pubkey = """
 # Missing signatures on AKDS records will always produce an error
 acceptUnverified = false
 
+# URL to pull keys from
+# Note that the response is pulled as-is and will not be verified, unlike AKDS
+url = "https://example.com/keys"
+
+# Whether to allow fallback to pulling keys from URL if AKD/S fails
+allowUrlFallback = true
+
 # Whether to overwrite authorized_keys with AKD/S results
 overwriteAuthorizedKeys = false
 
