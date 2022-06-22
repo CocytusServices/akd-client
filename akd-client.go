@@ -19,6 +19,16 @@ import (
     "github.com/ProtonMail/gopenpgp/v2/crypto"
 )
 
+// Exit codes
+const (
+    exitNoError = 0
+    exitGenericError = 1
+    exitConfigError = 2
+    exitGetKeyError = 3
+    exitValidationError = 4
+    exitIOError = 5
+)
+
 // Config file format
 type Config struct {
     RecordName              string
@@ -245,7 +255,7 @@ func main() {
     config, err := loadConfig(args.ConfigPath)
     if err != nil {
         fmt.Fprintln(os.Stderr, "Failed to load config from " + args.ConfigPath + ": " + err.Error())
-        return
+        os.Exit(exitConfigError)
     }
 
     // Prioritise AKD if possible
@@ -260,7 +270,7 @@ func main() {
             // Stop here if URL fallback is possible but not allowed
             if config.Url != "" && !config.AllowUrlFallback {
                 fmt.Fprintln(os.Stderr, "URL specified but fallback not allowed")
-                return
+                os.Exit(exitGetKeyError)
             }
         } else  {
             if verified {
@@ -276,11 +286,11 @@ func main() {
         keys, err = getUrlKeys(config.Url)
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to get keys from URL: " + err.Error())
-            return
+            os.Exit(exitGetKeyError)
         }
     } else if err != nil && config.Url == "" {
         fmt.Fprintln(os.Stderr, "Failed to get any keys: " + err.Error())
-        return
+        os.Exit(exitGetKeyError)
     }
 
     // Validate the key blob to ensure it conforms with the OpenSSH authorized_keys format
@@ -288,7 +298,7 @@ func main() {
     valid, err = validateAuthorizedKeys(keys)
     if err != nil || !valid {
         fmt.Fprintln(os.Stderr, "Failed to validate key blob format")
-        return
+        os.Exit(exitValidationError)
     }
 
     // Print out for OpenSSH to handle
@@ -310,14 +320,14 @@ func main() {
         file, err := os.Create(path)
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to create authorized_keys file at "+path)
-            return
+            os.Exit(exitNoError)
         }
 
         // Write out the keys
         _, err = file.Write([]byte(keys))
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to write authorized_keys file to "+path)
-            return
+            os.Exit(exitNoError)
         }
 
         // Change the file permissions to 600
@@ -333,12 +343,12 @@ func main() {
         parentDirInfo, err = os.Stat(parentDir)
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to stat "+parentDir)
-            return
+            os.Exit(exitNoError)
         }
         parentDirStat := parentDirInfo.Sys().(*syscall.Stat_t)
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to get syscall stat for "+parentDir)
-            return
+            os.Exit(exitNoError)
         }
         err = file.Chown(int(parentDirStat.Uid), int(parentDirStat.Gid))
         if err != nil {
