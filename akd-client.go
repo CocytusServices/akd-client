@@ -67,7 +67,7 @@ func loadConfig(path string) (Config, error) {
 
     // Ensure we've been given either a record name or URL
     if config.RecordName == "" && config.Url == "" {
-        return config, errors.New("No value for RecordName or Url provided, cannot retrieve any keys")
+        return config, errors.New("No value for RecordName or Url provided, will not be able to retrieve any keys")
     }
 
     // Parse the pubkey if we've been given one
