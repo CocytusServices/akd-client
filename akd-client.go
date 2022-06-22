@@ -25,6 +25,7 @@ type Config struct {
     PubkeyStr               string `toml:"Pubkey"`
     pubkey                  *crypto.Key
     Url                     string
+    AllowUrlFallback        bool
     AcceptUnverified        bool
     OverwriteAuthorizedKeys bool
     AuthorizedKeysPath      string
@@ -255,6 +256,12 @@ func main() {
         if err != nil {
             // Print out the error but don't return yet, we'll give the URL a try
             fmt.Fprintln(os.Stderr, "Failed to get keys from AKD/S record: " + err.Error())
+
+            // Stop here if URL fallback is possible but not allowed
+            if config.Url != "" && !config.AllowUrlFallback {
+                fmt.Fprintln(os.Stderr, "URL specified but fallback not allowed")
+                return
+            }
         } else  {
             if verified {
                 fmt.Fprintln(os.Stderr, "Successfully verified AKDS data")
@@ -264,14 +271,14 @@ func main() {
         }
     }
 
-    // Fall back to URL if AKD not available
-    if (err != nil || config.RecordName == "") && config.Url != "" {
+    // Use URL if AKD not available
+    if config.RecordName == "" || (err != nil && config.Url != "") {
         keys, err = getUrlKeys(config.Url)
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to get keys from URL: " + err.Error())
             return
         }
-    } else if err != nil {
+    } else if err != nil && config.Url == "" {
         fmt.Fprintln(os.Stderr, "Failed to get any keys: " + err.Error())
         return
     }
