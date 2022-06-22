@@ -22,11 +22,11 @@ import (
 // Exit codes
 const (
     exitNoError = 0
-    exitGenericError = 1
+    //exitGenericError = 1
     exitConfigError = 2
     exitGetKeyError = 3
     exitValidationError = 4
-    exitIOError = 5
+    //exitIOError = 5
 )
 
 // Config file format
