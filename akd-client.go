@@ -26,19 +26,20 @@ const (
     exitConfigError = 2
     exitGetKeyError = 3
     exitValidationError = 4
-    //exitIOError = 5
+    exitIOError = 5
 )
 
 // Config file format
 type Config struct {
-    RecordName              string
-    PubkeyStr               string `toml:"Pubkey"`
-    pubkey                  *crypto.Key
-    Url                     string
-    AllowUrlFallback        bool
-    AcceptUnverified        bool
-    OverwriteAuthorizedKeys bool
-    AuthorizedKeysPath      string
+    RecordName                string
+    PubkeyStr                 string `toml:"Pubkey"`
+    pubkey                    *crypto.Key
+    Url                       string
+    AllowUrlFallback          bool
+    AcceptUnverified          bool
+    OverwriteAuthorizedKeys   bool
+    AuthorizedKeysPath        string
+    RaiseAuthorizedKeysErrors bool
 }
 
 type CliArgs struct {
@@ -306,6 +307,14 @@ func main() {
 
     // Try writing out to authorized_keys, if enabled
     if config.OverwriteAuthorizedKeys {
+        // Enable/disable non-zero exit code on IO errors
+        var exitCode int
+        if config.RaiseAuthorizedKeysErrors {
+            exitCode = exitIOError
+        } else {
+            exitCode = exitNoError
+        }
+
         var err error
         var path string
         if filepath.IsAbs(config.AuthorizedKeysPath) {
@@ -320,14 +329,14 @@ func main() {
         file, err := os.Create(path)
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to create authorized_keys file at "+path)
-            os.Exit(exitNoError)
+            os.Exit(exitCode)
         }
 
         // Write out the keys
         _, err = file.Write([]byte(keys))
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to write authorized_keys file to "+path)
-            os.Exit(exitNoError)
+            os.Exit(exitCode)
         }
 
         // Change the file permissions to 600
@@ -343,12 +352,12 @@ func main() {
         parentDirInfo, err = os.Stat(parentDir)
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to stat "+parentDir)
-            os.Exit(exitNoError)
+            os.Exit(exitCode)
         }
         parentDirStat := parentDirInfo.Sys().(*syscall.Stat_t)
         if err != nil {
             fmt.Fprintln(os.Stderr, "Failed to get syscall stat for "+parentDir)
-            os.Exit(exitNoError)
+            os.Exit(exitCode)
         }
         err = file.Chown(int(parentDirStat.Uid), int(parentDirStat.Gid))
         if err != nil {
