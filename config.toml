@@ -26,3 +26,8 @@ overwriteAuthorizedKeys = false
 # Relative paths are relative to this config file
 # Only applies if overwriteAuthorizedKeysFile is set to true
 authorizedKeysPath = "authorized_keys"
+
+# Whether failure to write out the authorized_keys file will cause a non-zero exit code
+# Be careful with this! If key validation was successful but the file fails, login will
+# be denied by OpenSSH!
+raiseAuthorizedKeysErrors = false
