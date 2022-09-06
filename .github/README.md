@@ -12,8 +12,18 @@ This is an `AuthorizedKeysCommand`-compatible client for controlling SSH access 
 If you're feeling brave, rename your `authorized_keys` file and try SSH in. If all goes well, you should be let through. If not, try running `akd-client` manually and check the output.
 
 ## Configuration
+### `akd-client`
+The client needs to be configured with the record it will be checking and (optionally if using AKDS) the public key to verify the AKDS record against. By default `akd-client` will try read this in from `./config.toml`, but you can change this by specifying a path with the `-c` argument.
+
+See [config.toml](/config.toml) for a template.
+
 ### DNS
 AKD/S operates using TXT records with either `v=akd;` or `v=akds;` headers. These help differentiate from other TXT-based protocols as well as determine whether the data is cryptographically signed.
+
+Run the following snippet to generate an AKDS record based off your current `authorized_keys` file:
+```sh
+echo "v=akds; k=$(base64 -w 0 < ~/.ssh/authorized_keys); s=$(gpg --detach-sign < ~/.ssh/authorized_keys | base64 -w 0);"
+```
 
 The key format is as follows:  
 - AKD: `v=akd; k=<base64-encoded authorized_keys...>;`  
@@ -25,12 +35,7 @@ The `authorized_keys` data is only encoded in Base64, so it can easily be pulled
 
 Here is an example record value using AKDS:
 ```
-v=akds; s=iHUEABYKAB0WIQQ3uvv2LpbDyGv3Lm7MdkksvhHnFQUCYjxAQwAKCRDMdkksvhHnFUZiAQC2BM76AzoprX+KEcrJWyr6e5wODi3wbvLLUzBh7PnX8gEA0caQEWB890KlufnEaWy84WvVXNR1O8iIbWGFEFLMzQ8=; k=c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUY1dld0eE54S2FFUllZUjNaMzRhV1JSYlZPQm5Hd3ZTMUgrd0VsdXpNalogdG9tQGljZTUudGVtLnBhcnR5CnNzaC1lZDI1NTE5IEFBQUFDM056YUMxbFpESTFOVEU1QUFBQUlJVGJDdmpTOGFtN00rb3JBbmdLYTlKTGV0U29mS2ZuVmpOVm5lL1QvRWROIHRvbUB3aW4uaWNlNS50ZW0ucGFydHkKc3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUJHdkw1RVJEZ2ZKQmhydEZUOTkzNFpCcEZjRGI2andaOGQ0YnVPT2JVL2QgdG9tQHV0aWxpYm9vay50ZW0ucGFydHkKc3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUlLQlh6MkNwclVwWVJOOSt5VW9sc3NiMC9naU0zc2NRMkY0UVVZaXRyVnkgdG9tQG1hY2Jvb2sudGVtLnBhcnR5CnNzaC1lZDI1NTE5IEFBQUFDM056YUMxbFpESTFOVEU1QUFBQUlCdXZSc29GNHhpL2NQcEd5RE4yUkt6NzlNOE02NklvYytyS0RaVFc3dnJLIHRvbUBlZGdlMjAudGVtLnBhcnR5;
+v=akds; k=c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUY1dld0eE54S2FFUllZUjNaMzRhV1JSYlZPQm5Hd3ZTMUgrd0VsdXpNalogdG9tQGljZTUudGVtLnBhcnR5CnNzaC1lZDI1NTE5IEFBQUFDM056YUMxbFpESTFOVEU1QUFBQUlJVGJDdmpTOGFtN00rb3JBbmdLYTlKTGV0U29mS2ZuVmpOVm5lL1QvRWROIHRvbUB3aW4uaWNlNS50ZW0ucGFydHkKc3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUJHdkw1RVJEZ2ZKQmhydEZUOTkzNFpCcEZjRGI2andaOGQ0YnVPT2JVL2QgdG9tQHV0aWxpYm9vay50ZW0ucGFydHkKc3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUlLQlh6MkNwclVwWVJOOSt5VW9sc3NiMC9naU0zc2NRMkY0UVVZaXRyVnkgdG9tQG1hY2Jvb2sudGVtLnBhcnR5CnNzaC1lZDI1NTE5IEFBQUFDM056YUMxbFpESTFOVEU1QUFBQUlCdXZSc29GNHhpL2NQcEd5RE4yUkt6NzlNOE02NklvYytyS0RaVFc3dnJLIHRvbUBlZGdlMjAudGVtLnBhcnR5; s=iHUEABYKAB0WIQQ3uvv2LpbDyGv3Lm7MdkksvhHnFQUCYjxAQwAKCRDMdkksvhHnFUZiAQC2BM76AzoprX+KEcrJWyr6e5wODi3wbvLLUzBh7PnX8gEA0caQEWB890KlufnEaWy84WvVXNR1O8iIbWGFEFLMzQ8=;
 ```
 
-The signature entry (`s=`) is created by making an AKD record as above, signing it using GPG, and base64 encoding it. This can be achieved by piping the record into the STDIN of `gpg -s | base64`.
-
-### `akd-client`
-The client needs to be configured with the record it will be checking and (optionally if using AKDS) the public key to verify the AKDS record against. By default `akd-client` will try read this in from `./config.toml`, but you can change this by specifying a path with the `-c` argument.
-
-See [config.toml](/config.toml) for a template.
+The signature entry (`s=`) is created by making an AKD record as above, signing it using GPG, and base64 encoding it. This can be achieved by piping the record into the STDIN of `gpg --detach-sign | base64`.
