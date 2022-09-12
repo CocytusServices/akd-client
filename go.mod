@@ -1,4 +1,4 @@
-module cocytus.services/akd-client
+module github.com/CocytusServices/akd-client
 
 go 1.16
 
